@@ -64,6 +64,15 @@ Before declaring done, look at the page and ask: *would a designer recognize thi
 
 **Option comparisons.** Side-by-side blocks, each labeled with the tradeoff it makes. Give each option genuine visual character — different density, different emphasis, different decisions visible at a glance — so the comparison is doing real work.
 
+**Braided comparison layout.** When the whole document is about a dichotomy (A vs B, or A/B vs C/D), don't force everything into columns and don't keep everything full-width — braid the two:
+
+- Sections that apply to all options (intro, shared context, the decision criteria, the verdict) run **full-width, single column**.
+- Where the options genuinely diverge, **split into side-by-side columns**, one per option, then merge back to full width when the content is shared again. The page alternates: full → split → full → split.
+- Inside a split, **align by aspect, not by option**: the same concern (cost, failure mode, migration path) sits at the same vertical position in every column, so the reader's eye scans horizontally to compare. Use CSS grid rows, not independent stacked cards, so alignment survives uneven content lengths.
+- If an aspect applies to only one option, **keep the other column's cell present but visibly empty** — a dimmed "n/a" or short note on why it doesn't apply. An empty cell at the right row is information; collapsing it destroys the alignment that makes the comparison readable.
+- Assume the reader may be on a widescreen: side-by-side columns at comfortable reading width each are fine. Still stack the columns on narrow viewports (a media query or `grid-template-columns` with `minmax`), keeping each option's cells labeled so the pairing survives stacking.
+- Repeat the option's name or accent color on every split section header — after a full-width interlude the reader must instantly re-orient which column is which. Give each option a stable hue used only for it.
+
 **Diagrams.** Hand-author SVG inline. Label everything. Use the document's own color tokens, not random per-shape colors. Avoid generic "boxes-and-arrows flowchart" styling; let the diagram adapt to what's actually being shown (a state machine, a request path, a data model, a timeline).
 
 **Code.** Monospace face, restrained syntax differentiation (keywords / strings / comments — that's enough). Do not bundle Prism or highlight.js for 12 lines. When explaining, prefer margin annotations next to the code over paragraphs above it.
@@ -74,7 +83,7 @@ Before declaring done, look at the page and ask: *would a designer recognize thi
 
 **Export.** For throwaway editors, end with one or more `Copy as ___` buttons (JSON / markdown / prompt) so the reader's work flows back into Claude or elsewhere.
 
-**Navigation.** For longer documents, a small sticky table of contents on the side beats endless scroll. For shorter ones, just let it scroll.
+**Navigation.** For longer documents, a small sticky table of contents on the side beats endless scroll. For shorter ones, just let it scroll. Whenever a TOC or tree navigation is included, it must track reading position: highlight the entry for the section currently in view so the reader always knows where they are in the file. Implement with a small inline `IntersectionObserver` over the section headings (`rootMargin` tuned so the highlight flips near the top of the viewport, not at the exact edge); style the active entry with the document's accent — weight or a tinted background, consistent with the page's own tokens. Entries should also smooth-scroll to their section on click.
 
 ## Process
 
