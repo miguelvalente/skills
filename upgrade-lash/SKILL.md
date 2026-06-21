@@ -25,17 +25,57 @@ target tag.
 
 ## Steps
 
-1. **Survey** (read-only). `git -C ../lash pull`. Find the current pinned rev,
-   pick the target tag (`git -C ../lash tag --sort=-creatordate | head -1`), read
-   `git -C ../lash log/diff <current>..<target>`, and grep `app/` for impact.
-   Classify: **none** / **mechanical** / **risky**.
+1. **Survey** (read-only). `git -C ../lash pull`. Find the current pinned rev and
+   pick the target tag (`git -C ../lash tag --sort=-creatordate | head -1`). List
+   the tags strictly between the pinned rev and the target
+   (`git -C ../lash tag --sort=creatordate --merged <target> --no-merged <current>`,
+   or walk `git -C ../lash log --tags <current>..<target>`). This is the set of
+   **releases** being crossed.
+
+   - **Single release** (the pinned rev is one tag behind the target). Read
+     `git -C ../lash log/diff <current>..<target>` directly and grep `app/` for
+     impact. Skip straight to classification.
+
+   - **Multiple releases.** Don't read the whole span as one flat diff — a later
+     release may add, revert, or supersede something an earlier one introduced,
+     and a flat diff hides that ordering. Instead:
+     1. **Fan out, one subagent per release.** For each consecutive tag pair
+        (`<rev/prev-tag>..<tag>`), spawn a subagent **in parallel** (all `Agent`
+        calls in a single message). Give each the exact pair and have it
+        independently analyze just that release: read its `log`/`diff`, and
+        return a structured summary — the API/behavior changes, anything
+        deprecated or removed, and a none/mechanical/risky guess scoped to that
+        release alone. Each subagent looks only at its own release; none sees the
+        others.
+     2. **Reconcile the summaries together.** Once all return, read the summaries
+        side by side **in release order** and resolve the span as a whole: collapse
+        churn that nets to nothing (added then removed), keep only the **final**
+        shape where a later release superseded an earlier one, and flag anything
+        that changed more than once across the span. The output is one
+        consolidated list of net changes from `<current>` to `<target>`.
+     3. **Validate the net changes against `app/`.** Only now grep/read `app/`,
+        driven by the consolidated list, to find what the app actually has to
+        change for the final API surface (not for intermediate states that no
+        longer exist at `<target>`).
+
+   Classify the result: **none** / **mechanical** / **risky**.
 2. **Gate.** none or mechanical → proceed. risky → pause, show the summary + the
    exact edits you propose, wait for go-ahead.
 3. **Apply.** Replace the rev SHA on every lash line (`replace_all`). Then in
    `app/backend`: `cargo update` → make app edits → `cargo check`. `cargo check`
    is a hard fail-gate; don't move on while it's red.
-4. **Verify.** `just dev` in the background (clears `.restate`, starts the stack;
-   wait for backend health at `http://127.0.0.1:8787`), then run the gates:
+4. **Verify.** Run `just dev` in the background — it needs the stack's ports
+   free (`just dev` aborts via `require_free_port` if the backend HTTP/Restate
+   ports are taken). If a stale stack is occupying them, kill it first so you can
+   invoke (`just dev` always rebuilds the backend, so the gates must run against
+   *your* build, not a leftover one): find and kill the holders of the ports from
+   `app/.env` — backend `APP_BACKEND_PORT` (8787), `APP_RESTATE_ADDR` (9080),
+   plus Restate 8080/9070, SurrealDB `SURREALDB_ENDPOINT` (8000), web 5173,
+   Surrealist 18188 — e.g. `lsof -nP -ti:8787,9080,8080,9070,8000,5173 | xargs -r kill`,
+   then `pkill -f 'just dev'` / `pkill -f 'brainial_lain_backend'` for strays.
+   (`nc -z` can briefly report a port "occupied" on a lingering TIME_WAIT socket;
+   re-check before killing.) `just dev` clears `.restate` and starts the stack;
+   wait for backend health at `http://127.0.0.1:8787`, then run the gates:
    `just e2e-workflows`, `just e2e-chain`, `just e2e-schedules`. Skip
    `e2e-chat-run` (nondeterministic, not a gate). Tear down when done.
 5. **Commit & report.** All gates green → commit `Upgrade backend to upstream
