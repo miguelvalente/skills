@@ -1,4 +1,0 @@
-interface:
-  display_name: "Starterpack"
-  short_description: "Deploy the Rust/Solid/Fly starter stack"
-  default_prompt: "Use $starterpack to scaffold and deploy a private Rust, SolidJS, WorkOS, SQLite/LiteFS app on Fly.io."
