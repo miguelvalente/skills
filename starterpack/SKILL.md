@@ -40,6 +40,44 @@ Keep the trust boundary on the server. The frontend should call app API endpoint
 - Keep all user data private by default. Make public profile/data sharing explicit and opt-in.
 - Start with one machine, one region, one LiteFS volume. Add multi-region only after the write model requires it.
 
+## Justfile
+
+Ship a root `Justfile` in every project. Include at least:
+
+- `default`: run `just --list`.
+- `dev`: start the full local stack.
+- `backend`: run the Rust server only.
+- `frontend`: run the SolidJS dev server only.
+- `build`: build frontend and backend artifacts.
+- `check`: run frontend build/checks and Rust checks.
+- `down`: stop anything listening on the project ports.
+
+Choose project-specific local ports before writing the app. Use uncommon explicit ports; never use Vite's default `5173`. Give the backend its own port. Pin the frontend in `vite.config.ts` with `server.port` and `strictPort: true`, and point the `/api` proxy at the backend port.
+
+Make `dev` and `down` self-contained bash recipes with `#!/usr/bin/env bash`, `set -euo pipefail`, and inline helpers. Implement `just dev` in this order:
+
+1. Check whether the project's backend or frontend ports are already in use. If they are, treat the holders as stale instances: TERM them, escalate to KILL if needed, wait until the ports free, and echo what was killed.
+2. Start backend and frontend as background children, tracking PIDs and labels.
+3. Gate readiness with an `nc -z` polling helper. Use a generous timeout for `cargo run` compilation.
+4. Trap `EXIT`, `INT`, and `TERM` with recursive kill-tree cleanup so Ctrl-C tears down the whole stack.
+5. Supervise with a `kill -0` loop. If any managed service dies, clean up everything and exit non-zero.
+
+Make `down` kill anything on the project ports and exit cleanly when nothing runs.
+
+Use this compact helper shape, adapted to the chosen ports:
+
+```make
+port_open() { nc -z 127.0.0.1 "$1" >/dev/null 2>&1; }
+wait_until_closed() { for _ in {1..20}; do port_open "$1" || return 0; sleep 0.5; done; return 1; }
+listener_pids() { lsof -tiTCP:"$1" -sTCP:LISTEN 2>/dev/null || true; }
+reclaim_port() {
+  local label="$1" port="$2" pids
+  pids="$(listener_pids "$port")"; [[ -z "$pids" ]] && return 0
+  echo "$label port $port: TERM $pids"; kill $pids 2>/dev/null || true
+  wait_until_closed "$port" || { pids="$(listener_pids "$port")"; echo "$label port $port: KILL $pids"; kill -9 $pids; }
+}
+```
+
 ## WorkOS Setup
 
 Use AuthKit hosted UI. Keep these concepts distinct:
