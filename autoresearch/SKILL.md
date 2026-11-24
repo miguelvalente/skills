@@ -49,7 +49,7 @@ Keep all session state in one directory (`STATE_DIR`, default `.autoresearch/` o
 ├── autoresearch.checks.sh  # Correctness/invariants gate + locked floors from completed phases
 ├── autoresearch.ideas.md   # Backlog in three lanes: Seeded, Exploit, Explore
 ├── autoresearch.jsonl      # Append-only experiment ledger (never edited or truncated)
-└── proposals.md            # Gatekept ideas & spec ambiguities awaiting user sign-off
+└── proposals.md            # Gatekept ideas, spec ambiguities & skill improvements for user sign-off
 ```
 
 ### Metric Output Format (`autoresearch.sh`)
@@ -114,6 +114,7 @@ Repeat until the final phase goal is met, a cap is reached, or the user stops th
    - Append one JSON entry per evaluated candidate to `autoresearch.jsonl`.
    - Update `autoresearch.ideas.md` (mark `tried` / `dead-end`, add new follow-ups).
    - Update `autoresearch.md` with the new best commit/metrics and a 1–2 line lesson so dead ends are never re-tried.
+   - If you hit friction, blind spots, or better workflow patterns in the `autoresearch` loop itself, do not edit `SKILL.md` mid-run — append a concrete note under `## Skill Improvements` in `proposals.md`.
 8. **Check Phase Promotion.** When the active phase hits its target threshold — or plateaus after the configured `Explore` attempts — and another phase is queued:
    1. Lock the completed phase's best metric into `autoresearch.checks.sh` as a hard floor (with configured tolerance, e.g. `>= phase1_best - tolerance`).
    2. Advance `active_phase` and primary metric in `autoresearch.md` to the next subgoal.
@@ -139,5 +140,5 @@ When stopping (all phases achieved, cap reached, or user-stopped):
    - Kept commits with deltas and why each worked
    - Notable dead ends (so nobody repeats them)
    - Iterations run, workers dispatched, and total cost/time
-   - Open items in `proposals.md` ready for user review
+   - Open items in `proposals.md` (new tools, big bets, spec ambiguities, and any `## Skill Improvements` for `autoresearch/SKILL.md`) ready for user review
 3. For longer sessions, offer a self-contained HTML summary report if helpful.
