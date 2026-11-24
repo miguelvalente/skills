@@ -49,7 +49,14 @@ Keep all session state in one directory (`STATE_DIR`, default `.autoresearch/` o
 ├── autoresearch.checks.sh  # Correctness/invariants gate + locked floors from completed phases
 ├── autoresearch.ideas.md   # Backlog in three lanes: Seeded, Exploit, Explore
 ├── autoresearch.jsonl      # Append-only experiment ledger (never edited or truncated)
-└── proposals.md            # Gatekept ideas, spec ambiguities & skill improvements for user sign-off
+├── proposals.md            # Gatekept ideas (tools/deps, big bets) & dataset/spec incongruities
+└── iterations/             # Per-iteration evidence for post-run review (never loaded bulk into Orchestrator)
+    └── iter-NNN/
+        ├── brief.md        # Hypothesis & instructions dispatched to the worker
+        ├── diff.patch      # Exact code/prompt diff tested (kept even for discards)
+        ├── metrics.log     # Raw stdout/stderr from autoresearch.sh
+        ├── checks.log      # Raw stdout/stderr from autoresearch.checks.sh
+        └── report.md       # Worker's compact structured summary
 ```
 
 ### Metric Output Format (`autoresearch.sh`)
@@ -68,7 +75,7 @@ METRIC cost_usd=0.31
 Append one JSON object per experiment (written only by the Orchestrator):
 
 ```json
-{"iter": 1, "ts": "2026-11-24T13:00:00Z", "phase": 1, "lane": "exploit", "commit": "a1b2c3d", "hypothesis": "...", "primary_name": "val_score", "primary": 0.9410, "secondary": {"train_score": 0.9380, "latency_s": 114.2, "cost_usd": 0.30}, "checks": "pass", "status": "keep", "notes": "..."}
+{"iter": 1, "ts": "2026-11-24T13:00:00Z", "phase": 1, "lane": "exploit", "commit": "a1b2c3d", "hypothesis": "...", "primary_name": "val_score", "primary": 0.9410, "secondary": {"train_score": 0.9380, "latency_s": 114.2, "cost_usd": 0.30}, "checks": "pass", "status": "keep", "duration_s": 128, "artifact_dir": "iterations/iter-001", "notes": "..."}
 ```
 
 Valid `status` values: `baseline`, `keep`, `discard`, `checks_failed`, `crash`.
@@ -111,10 +118,10 @@ Repeat until the final phase goal is met, a cap is reached, or the user stops th
    - Among valid winners, pick the strongest primary metric, review its actual diff (verify zero hacks / zero memorization), fast-forward or cherry-pick it onto `autoresearch/<slug>`, and re-verify `autoresearch.checks.sh` on the branch head.
    - Discard losing worktrees cleanly.
 7. **Record & Reflect.**
+   - Ensure the iteration's evidence folder (`iterations/iter-NNN/`: `brief.md`, `diff.patch`, `metrics.log`, `checks.log`, `report.md`) is saved cleanly — for both keeps and discards — so post-run review has the full trail.
    - Append one JSON entry per evaluated candidate to `autoresearch.jsonl`.
    - Update `autoresearch.ideas.md` (mark `tried` / `dead-end`, add new follow-ups).
    - Update `autoresearch.md` with the new best commit/metrics and a 1–2 line lesson so dead ends are never re-tried.
-   - If you hit friction, blind spots, or better workflow patterns in the `autoresearch` loop itself, do not edit `SKILL.md` mid-run — append a concrete note under `## Skill Improvements` in `proposals.md`.
 8. **Check Phase Promotion.** When the active phase hits its target threshold — or plateaus after the configured `Explore` attempts — and another phase is queued:
    1. Lock the completed phase's best metric into `autoresearch.checks.sh` as a hard floor (with configured tolerance, e.g. `>= phase1_best - tolerance`).
    2. Advance `active_phase` and primary metric in `autoresearch.md` to the next subgoal.
@@ -140,5 +147,6 @@ When stopping (all phases achieved, cap reached, or user-stopped):
    - Kept commits with deltas and why each worked
    - Notable dead ends (so nobody repeats them)
    - Iterations run, workers dispatched, and total cost/time
-   - Open items in `proposals.md` (new tools, big bets, spec ambiguities, and any `## Skill Improvements` for `autoresearch/SKILL.md`) ready for user review
+   - Open items in `proposals.md` (new tools, big bets, dataset/spec incongruities) ready for user review
+   - Path to `STATE_DIR` (ready for an offline post-run review)
 3. For longer sessions, offer a self-contained HTML summary report if helpful.
